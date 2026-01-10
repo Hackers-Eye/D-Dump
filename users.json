@@ -1,0 +1,14 @@
+{
+  "krishghosh": {
+    "count": 42,
+    "limit": 20000,
+    "last_search": "2025-12-23T15:01:03.068776",
+    "password": "scrypt:32768:8:1$XNcy6IkvnraOzT9i$c7ccb57a33e2c91ee3494abd7511990b7b86df9654b444a77ef5065e570c77828f0ca27a8e538c8d903eb3b4715fc7912338b4a2276514dfcba21096ef620fc6"
+  },
+  "krishghosh21": {
+    "count": 35,
+    "limit": 200000,
+    "last_search": "2025-10-31T16:18:45.900009",
+    "password": "scrypt:32768:8:1$RcAIZr7YPrHPVqJU$671eb56e84ab88df7c9016891ec92f38feefe9895dce0beab21310bafc5d3fceddf615cbeadc710500e8df1153f263ccb1819dda60f79196bb6b7753b67e758f"
+  }
+}
