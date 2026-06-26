@@ -18,17 +18,23 @@ IP_ADDRESS = os.environ.get("OSINT_IP", "0.0.0.0")
 PORT = int(os.environ.get("OSINT_PORT", "8000"))
 
 DATA_FILE = "data.json"
-DATA_DIR = "data"  # Optional folder containing multiple data files (.json, .csv, .xlsx)
+DATA_DIR = "data"
 USER_FILE = "users.json"
 LOG_FILE = "logs.json"
 TEMPLATE_DIR = "templates"
 STATIC_DIR = "static"
 
+# ---------- SAFE PRINT (no emoji) ----------
+def log(msg):
+    try:
+        print(msg)
+    except Exception:
+        pass
+
 # ---------- INITIAL SETUP ----------
 def ensure_dirs_and_templates():
     os.makedirs(TEMPLATE_DIR, exist_ok=True)
     os.makedirs(STATIC_DIR, exist_ok=True)
-
     if not os.path.exists(os.path.join(STATIC_DIR, "style.css")):
         with open(os.path.join(STATIC_DIR, "style.css"), "w", encoding="utf-8") as f:
             f.write("body{background:#f6f8fb} .card{border-radius:12px}")
@@ -42,11 +48,9 @@ def ensure_data_files():
         ]
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(sample, f, indent=2)
-
     if not os.path.exists(USER_FILE):
         with open(USER_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f)
-
     if not os.path.exists(LOG_FILE):
         with open(LOG_FILE, "w", encoding="utf-8") as f:
             json.dump([], f)
@@ -85,7 +89,7 @@ def _iter_records_from_json(path):
     try:
         raw = load_json(path)
     except Exception as e:
-        print(f"❌ JSON load failed for {path}: {e}")
+        log(f"JSON load failed for {path}: {e}")
         return
     for item in _normalize_json_payload(raw):
         if isinstance(item, str):
@@ -104,11 +108,11 @@ def _iter_records_from_csv(path):
                 if isinstance(row, dict):
                     yield row
     except Exception as e:
-        print(f"❌ CSV read failed for {path}: {e}")
+        log(f"CSV read failed for {path}: {e}")
 
 def _iter_records_from_xlsx(path):
     if not load_workbook:
-        print("ℹ️ openpyxl not installed; skipping .xlsx file:", path)
+        log(f"openpyxl not installed; skipping .xlsx file: {path}")
         return
     try:
         wb = load_workbook(path, read_only=True, data_only=True)
@@ -123,7 +127,7 @@ def _iter_records_from_xlsx(path):
             item = {header[i]: (r[i] if i < len(r) else None) for i in range(len(header))}
             yield item
     except Exception as e:
-        print(f"❌ XLSX read failed for {path}: {e}")
+        log(f"XLSX read failed for {path}: {e}")
 
 COMMON_FIELDS = ("name", "email", "phone", "mobile", "address", "city", "fname", "circle", "id", "alt")
 
@@ -131,18 +135,15 @@ def _record_matches(item, q):
     for k in COMMON_FIELDS:
         if q in str(item.get(k, "")).lower():
             return True
-    # fallback: search any value
     for v in item.values():
         if q in str(v).lower():
             return True
     return False
 
 def _iter_all_records():
-    # 1) Primary JSON file
     if os.path.exists(DATA_FILE):
         for item in _iter_records_from_json(DATA_FILE):
             yield item
-    # 2) Any files in DATA_DIR
     if os.path.isdir(DATA_DIR):
         try:
             for name in sorted(os.listdir(DATA_DIR)):
@@ -157,25 +158,23 @@ def _iter_all_records():
                 elif lower.endswith('.xlsx') or lower.endswith('.xlsm'):
                     yield from _iter_records_from_xlsx(path)
         except Exception as e:
-            print("❌ Error reading data dir:", e)
+            log(f"Error reading data dir: {e}")
 
 def search_data(query):
     q = (query or "").strip().lower()
     if not q:
         return []
-
     results = []
     seen = set()
     for item in _iter_all_records():
         try:
             if _record_matches(item, q):
-                # Deduplicate by stable JSON signature
                 sig = json.dumps(item, sort_keys=True, default=str)
                 if sig not in seen:
                     seen.add(sig)
                     results.append(item)
         except Exception as e:
-            print("❌ Record processing error:", e)
+            log(f"Record processing error: {e}")
             continue
     return results
 
@@ -188,7 +187,7 @@ def create_pdf_bytes(username, query, results):
     y = height - margin
 
     p.setFont("Helvetica-Bold", 16)
-    p.drawString(margin, y, "Smart OSINT Lookup — Search Result")
+    p.drawString(margin, y, "Smart OSINT Lookup - Search Result")
     y -= 30
     p.setFont("Helvetica", 10)
     p.drawString(margin, y, f"User: {username} | Query: {query} | Time: {datetime.datetime.utcnow().isoformat()}Z")
@@ -271,16 +270,16 @@ def home():
 
     if request.method == "POST":
         query = request.form.get("query", "").strip()
-        print(f"🔍 Searching for: {query}")
+        log(f"Searching for: {query}")
         if not query:
             message = "Enter a search term."
         else:
             if user["count"] >= user["limit"]:
-                print("⚠️ Search limit reached")
+                log("Search limit reached")
                 return redirect("/upgrade")
 
             results = search_data(query)
-            print(f"✅ Found {len(results)} result(s)")
+            log(f"Found {len(results)} result(s)")
             user["count"] += 1
             user["last_search"] = datetime.datetime.utcnow().isoformat()
             users[username] = user
@@ -341,7 +340,7 @@ def admin():
     username = request.form.get("username")
     try:
         add_limit = int(request.form.get("add_limit", "0"))
-    except:
+    except Exception:
         add_limit = 0
 
     users = load_json(USER_FILE)
@@ -371,5 +370,5 @@ def logout():
 
 # ---------- RUN ----------
 if __name__ == "__main__":
-    print(f"🌐 Running Smart OSINT Web App at http://{IP_ADDRESS}:{PORT}")
-    app.run(host=IP_ADDRESS, port=PORT, debug=True)
+    log(f"Running Smart OSINT Web App at http://{IP_ADDRESS}:{PORT}")
+    app.run(host=IP_ADDRESS, port=PORT, debug=False)
